@@ -474,10 +474,14 @@ def write_pcb_script(job: Path, root: Path, board_mode=False) -> Path:
     stages = '''TRL_ALTIUM2PCB_Setup_Units()
         TRL_ALTIUM2PCB_Setup_Text_Blocks()
         TRL_ALTIUM2PCB_DBCreate_Stackup()
+        trl_altium2pcb_global->pcbRules=TRL_ALTIUM2PCB_Extract_Rules()
+        trl_altium2pcb_global->negPlaneParam=TRL_ALTIUM2PCB_Extract_Plane_Thermal_Anti_Parameters()
         TRL_ALTIUM2PCB_Export_Footprints()
         TRL_ALTIUM2PCB_Dump_Device_Files()'''
     if board_mode:
-        stages = 'TRL_ALTIUM2PCB_Run_Batch()\n        axlDBSave("' + p + '/result.brd")'
+        stages = ('TRL_ALTIUM2PCB_Run_Batch()\n'
+                  '        unless(axlSaveDesign(?design "' + p + '/result.brd" ?noMru t ?noConfirm t) '
+                  'error("Cannot save result.brd"))')
     code = '''loadContext("@CONTEXT@")
 let((result marker logport)
     result=errset(progn(
@@ -533,7 +537,10 @@ def execute_job(job: Path, kind: str, root: Path, args, log) -> dict:
     board = job / "result.brd"
     marker = job / "pcb.done"
     if not marker.exists() or marker.read_text().strip() != "OK":
-        raise ConversionError("PCB 原生转换函数失败，参见 allegro_process.log / allegro.jrl；可用 AD 另存 ASCII 后重试。")
+        process_log = (job / "allegro_process.log").read_text(errors="replace")
+        detail = re.search(r"^.*(?:\*Error\*|^E-).*$", process_log, re.M)
+        detail = f"\n{detail.group(0).strip()}" if detail else ""
+        raise ConversionError(f"PCB 原生转换失败。{detail}\n日志：{job / 'allegro_process.log'}")
     journal = (job / "allegro.jrl").read_text(errors="replace") if (job / "allegro.jrl").exists() else ""
     process_log = (job / "allegro_process.log").read_text(errors="replace")
     if re.search(r"\bERROR\s*\(|\*Error\*|Unknown command|^E-", journal + "\n" + process_log, re.I | re.M):
