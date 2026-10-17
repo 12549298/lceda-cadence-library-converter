@@ -106,6 +106,13 @@ class ConversionTests(unittest.TestCase):
         _, files = discover(self.root / "input", self.root / "work", excluded=(self.root / "input/output",))
         self.assertEqual(files, [good])
 
+    def test_discovery_normalizes_excluded_paths(self):
+        good = self.write("input/board.PcbDoc", PCB)
+        self.write("input/output/old.PcbDoc", PCB)
+        alias = self.root / "input/output/../output"
+        _, files = discover(self.root / "input", self.root / "work", excluded=(alias,))
+        self.assertEqual(files, [good])
+
 
 if __name__ == "__main__":
     unittest.main()

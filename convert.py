@@ -310,6 +310,8 @@ def safe_unzip(source: Path, target: Path) -> None:
 
 
 def discover(source: Path, scratch: Path, excluded=()) -> tuple[Path, list[Path]]:
+    # Resolve both sides: Windows can expose the same directory through an 8.3 alias.
+    excluded = tuple(Path(path).resolve() for path in excluded)
     if source.suffix.lower() == ".zip" and source.is_file():
         root = scratch / "unpacked"
         root.mkdir()
